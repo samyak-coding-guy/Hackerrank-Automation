@@ -1,30 +1,30 @@
+const readline = require('readline');
 const { exec } = require('child_process');
 
-console.log('Starting Cypress runner...');
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+});
 
-// Use the browser's prompt function to get user input
-const daysInput = prompt('Enter the number of previous days to filter submissions:');
-
-if (daysInput !== null) {  // Ensure user didn't cancel the prompt
-    console.log(`You entered: ${daysInput}`);
-
+rl.question('Enter the number of previous days to filter submissions: ', (daysInput) => {
     const days = parseInt(daysInput, 10);
+
     if (isNaN(days) || days <= 0) {
-        alert('Invalid input. Please enter a positive number.');
-        throw new Error('Invalid input.');
+        console.error('Invalid input. Please enter a positive number.');
+        rl.close();
+        process.exit(1);
     }
 
-    console.log(`Proceeding with the last ${days} days.`);
-    const testSpec = 'cypress/e2e/hackerrankTest.cy.js';
-
+    console.log(`Running Cypress with days: ${days}`);
+    
+    // Run Cypress with the days environment variable
     exec(`npx cypress open --env days=${days}`, (err, stdout, stderr) => {
         if (err) {
             console.error(`Error launching Cypress: ${err.message}`);
+            rl.close();
             return;
         }
-        console.log(`Cypress output: ${stdout}`);
-        console.error(`Cypress errors: ${stderr}`);
+        console.log(stdout);
+        rl.close();
     });
-} else {
-    console.log('User canceled the prompt.');
-}
+});
