@@ -1,7 +1,11 @@
 const express = require('express');
 const { exec } = require('child_process');
+const path = require('path');
 const app = express();
 const port = 3000;
+
+// Serve the static HTML page
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/run-cypress', (req, res) => {
     const days = req.query.days;
@@ -12,7 +16,6 @@ app.get('/run-cypress', (req, res) => {
 
     console.log(`Running Cypress with days: ${days}`);
 
-    // Run Cypress in headed mode (visual mode with UI visible)
     exec(`npx cypress open --env days=${days}`, (err, stdout, stderr) => {
         if (err) {
             return res.status(500).send({ error: err.message });

@@ -11,6 +11,7 @@ describe('Hackerrank Submissions Scraper with Days Filter and Pagination', () =>
     }
 
     const submissions = [];
+    let shouldStopPagination = false; // Flag to indicate when to stop pagination
 
     const scrapePage = () => {
         cy.get('table tbody tr').each(($row) => {
@@ -20,7 +21,7 @@ describe('Hackerrank Submissions Scraper with Days Filter and Pagination', () =>
             const timeText = cols.eq(2).text().trim(); // Assuming the Time column is the 3rd column
             const timeMatch = timeText.match(/^(\d+)\s+days?$/); // Regex to extract the number of days
             const daysAgo = timeMatch ? parseInt(timeMatch[1], 10) : null;
-    
+
             if (daysAgo !== null && daysAgo <= days) {
                 const submission = {
                     problem: cols.eq(0).text().trim(),
@@ -28,12 +29,20 @@ describe('Hackerrank Submissions Scraper with Days Filter and Pagination', () =>
                     time: formatTimeToHHMMSS(timeText), // Format the time column
                     result: cols.eq(3).text().trim(),
                     score: parseFloat(cols.eq(4).text().trim()), // Convert score to a number
-                }; 
-                
+                };
                 submissions.push(submission);
+            } else if (daysAgo !== null && daysAgo > days) {
+                // If any row exceeds the input limit, set the flag to stop pagination
+                shouldStopPagination = true;
             }
         }).then(() => {
             // Check for the "Next >" button and navigate if available
+            if (shouldStopPagination) {
+                cy.log('Reached submissions outside the input limit. Stopping pagination.');
+                finalizeScraping();
+                return;
+            }
+
             cy.get('li.pagination-item').then(($items) => {
                 const nextButton = $items.find('a.pagination-button[aria-label^="Next page"]');
                 if (nextButton && !nextButton.closest('li').hasClass('disabled')) {
@@ -42,19 +51,25 @@ describe('Hackerrank Submissions Scraper with Days Filter and Pagination', () =>
                     scrapePage(); // Recursively scrape the next page
                 } else {
                     cy.log('No more pages to scrape.');
-                    cy.writeFile('hackerrank_Submissions_Filtered.json', submissions);
-                    cy.task('convertToExcel', {
-                        data: submissions,
-                        filePath: 'cypress/reports/hackerrank_Submissions.xlsx',
-                    }).then((message) => {
-                        cy.log(`Excel generation result: ${message}`);
-                    });
+                    finalizeScraping();
                 }
             });
-            
         });
     };
-    
+
+    const finalizeScraping = () => {
+        // Write the submissions to a JSON file
+        cy.writeFile('hackerrank_Submissions_Filtered.json', submissions);
+
+        // Convert the data to Excel
+        cy.task('convertToExcel', {
+            data: submissions,
+            filePath: 'cypress/reports/hackerrank_Submissions.xlsx',
+        }).then((message) => {
+            cy.log(`Excel generation result: ${message}`);
+        });
+    };
+
     it('Logs in, scrapes all pages, and filters submissions for time <= specified days', () => {
         // Login to Hackerrank
         hackerrankTestSuite();
